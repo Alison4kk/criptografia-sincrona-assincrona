@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Criptografia AES + RSA (jQuery)</title>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+  <style>
+    /* ========== Reset & Base ========== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    :root{
+      --bg: #0f1216;
+      --surface: #151a21;
+      --surface-2: #1b222b;
+      --text: #e8ebf0;
+      --muted: #a5adba;
+      --primary: #5b8cff;
+      --primary-2:#2d6bff;
+      --ok: #3ad29f;
+      --warn: #ffca6b;
+      --danger: #ff7a7a;
+      --border: #273140;
+      --shadow: 0 10px 30px rgba(0,0,0,.3);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --surface-2: #f7f9ff;
+        --text: #1f2a37;
+        --muted: #5b6979;
+        --primary: #3b82f6;
+        --primary-2:#2962e6;
+        --ok: #10b981;
+        --warn: #f59e0b;
+        --danger: #ef4444;
+        --border: #e4e7ee;
+        --shadow: 0 14px 30px rgba(21, 29, 40, .08);
+      }
+    }
+    body{
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 15% -10%, rgba(91,140,255,.15), transparent 50%),
+                  radial-gradient(1200px 600px at 85% -10%, rgba(16,185,129,.12), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    /* ========== Layout ========== */
+    .container{ max-width: 1100px; margin: 0 auto; padding: 32px 18px 60px; }
+    header .title{ font-size: 26px; font-weight: 800; letter-spacing: .2px; }
+    header .subtitle{ color: var(--muted); font-size: 14px; margin-top: 6px; }
+    .warn{
+      display:inline-flex; align-items:center; gap:8px; margin-top:10px;
+      font-size:12px; color:#1f2a37; background: var(--warn); padding:8px 10px;
+      border-radius: 999px;
+    }
+
+    /* Tabs */
+    .tabs{ display:flex; gap:10px; margin:22px 0; flex-wrap: wrap; }
+    .tab{
+      border:1px solid var(--border); background: var(--surface-2);
+      color: var(--text); padding:10px 14px; border-radius: 999px;
+      cursor:pointer; user-select:none; transition: all .15s ease-in-out;
+    }
+    .tab[aria-selected="true"]{ background: var(--primary); border-color: transparent; box-shadow: var(--shadow); }
+    .grid{ display:grid; grid-template-columns: 1fr; gap:16px; }
+    @media (min-width: 960px){ .grid{ grid-template-columns: 1fr 1fr; } }
+
+    /* Cards */
+    .card{
+      background: var(--surface);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .card h2{ margin: 0 0 8px; font-size: 18px; }
+    .hint{ font-size: 12px; color: var(--muted); margin: 6px 0 14px; }
+
+    /* Form */
+    .label{ font-size: 13px; margin-bottom: 6px; display:block; color: var(--muted); }
+    .row{ display:flex; gap:10px; flex-wrap: wrap; }
+    .input, textarea{
+      width: 100%; background: var(--surface-2); color: var(--text);
+      border:1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px; outline: none; transition: box-shadow .12s ease, border-color .12s ease;
+      font-size: 14px;
+    }
+    .input:focus, textarea:focus{ border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent); }
+    textarea{ resize: vertical; min-height: 110px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+    /* Buttons */
+    .btn{ border:1px solid var(--border); background: var(--surface-2); color: var(--text);
+          padding:10px 14px; border-radius: 12px; cursor:pointer; transition: transform .04s ease, background .15s;
+          font-weight: 600; }
+    .btn:hover{ background: color-mix(in srgb, var(--surface-2) 75%, var(--text) 25%); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background: var(--primary); color: white; border-color: transparent; }
+    .btn.primary:hover{ background: var(--primary-2); }
+    .btn.ghost{ background: transparent; }
+    .btn.small{ padding: 6px 10px; font-size: 13px; }
+
+    /* Footer */
+    footer{ margin-top: 26px; font-size: 12px; color: var(--muted); }
+
+    /* Helper */
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .spacer{ height: 10px; }
+    .hr{ height:1px; background: var(--border); margin: 10px 0 16px; border-radius: 1px; }
+    .hidden{ display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title">🔐 Criptografia AES + RSA (jQuery)</div>
+      <div class="subtitle">Simétrica (AES-GCM + PBKDF2) e Assimétrica (RSA-OAEP híbrido). Código simples e comentado.</div>
+      <div id="secureWarn" class="warn hidden">⚠️ Abra em HTTPS/localhost para o Web Crypto funcionar corretamente.</div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs" role="tablist" aria-label="Modos de criptografia">
+      <button id="tabSym" class="tab" role="tab" aria-selected="true" aria-controls="panelSym">Simétrica (AES-GCM)</button>
+      <button id="tabAsym" class="tab" role="tab" aria-selected="false" aria-controls="panelAsym">Assimétrica (RSA-OAEP híbrido)</button>
+    </nav>
+
+    <!-- Painel SIMÉTRICA -->
+    <section id="panelSym" role="tabpanel" aria-labelledby="tabSym">
+      <div class="grid">
+        <!-- Cifrar -->
+        <div class="card">
+          <h2>Cifrar (AES-GCM + PBKDF2)</h2>
+          <div class="hint">A senha é derivada com PBKDF2 (SHA-256, 200k iterações) + sal aleatório.</div>
+
+          <label class="label" for="symPlain">Texto plano</label>
+          <textarea id="symPlain" placeholder="Digite o texto a ser cifrado..."></textarea>
+
+          <div class="spacer"></div>
+          <label class="label" for="symPassEnc">Senha (frase-secreta)</label>
+          <input id="symPassEnc" type="password" class="input" placeholder="Informe uma senha forte" />
+
+          <div class="spacer"></div>
+          <div class="row">
+            <button id="btnSymEncrypt" class="btn primary">Cifrar</button>
+            <button data-copy="#symOut" class="btn">Copiar saída</button>
+          </div>
+
+          <div class="spacer"></div>
+          <label class="label" for="symOut">Saída (JSON com salt/iv/ct)</label>
+          <textarea id="symOut" readonly rows="10" class="mono"></textarea>
+        </div>
+
+        <!-- Decifrar -->
+        <div class="card">
+          <h2>Decifrar (AES-GCM)</h2>
+
+          <label class="label" for="symIn">Entrada (cole o JSON gerado acima)</label>
+          <textarea id="symIn" class="mono" rows="10" placeholder='{"v":1,"alg":"AES-GCM","kdf":"PBKDF2","it":200000,"salt":"...","iv":"...","ct":"..."}'></textarea>
+
+          <div class="spacer"></div>
+          <label class="label" for="symPassDec">Senha</label>
+          <input id="symPassDec" type="password" class="input" placeholder="Mesma senha usada para cifrar" />
+
+          <div class="spacer"></div>
+          <div class="row">
+            <button id="btnSymDecrypt" class="btn primary">Decifrar</button>
+            <button data-copy="#symPlainOut" class="btn">Copiar texto</button>
+          </div>
+
+          <div class="spacer"></div>
+          <label class="label" for="symPlainOut">Texto decifrado</label>
+          <textarea id="symPlainOut" readonly rows="6"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel ASSIMÉTRICA -->
+    <section id="panelAsym" class="hidden" role="tabpanel" aria-labelledby="tabAsym" tabindex="-1">
+      <div class="grid">
+        <!-- Chaves -->
+        <div class="card">
+          <h2>Chaves RSA-OAEP (SHA-256)</h2>
+          <div class="hint">Use a <strong>pública</strong> para cifrar; a <strong>privada</strong> para decifrar. No modo híbrido, RSA cifra apenas a chave AES.</div>
+
+          <div class="row">
+            <button id="btnGenKeys" class="btn primary">Gerar par de chaves (2048)</button>
+            <button data-copy="#pubKey" class="btn">Copiar pública</button>
+            <button data-copy="#privKey" class="btn">Copiar privada</button>
+          </div>
+
+          <div class="spacer"></div>
+          <label class="label" for="pubKey">Chave Pública (PEM)</label>
+          <textarea id="pubKey" rows="6" class="mono" placeholder="-----BEGIN PUBLIC KEY----- ..."></textarea>
+
+          <div class="spacer"></div>
+          <label class="label" for="privKey">Chave Privada (PEM)</label>
+          <textarea id="privKey" rows="8" class="mono" placeholder="-----BEGIN PRIVATE KEY----- ..."></textarea>
+        </div>
+
+        <!-- Cifrar/Decifrar -->
+        <div class="card">
+          <h2>Cifrar &amp; Decifrar (Híbrido RSA + AES)</h2>
+
+          <label class="label" for="asymPlain">Texto para cifrar</label>
+          <textarea id="asymPlain" rows="4" placeholder="Texto de qualquer tamanho: cifrado com AES; a chave AES é cifrada com RSA."></textarea>
+
+          <div class="spacer"></div>
+          <div class="row">
+            <button id="btnAsymEncrypt" class="btn primary">Cifrar com pública</button>
+            <button data-copy="#asymOut" class="btn">Copiar saída</button>
+          </div>
+
+          <div class="spacer"></div>
+          <label class="label" for="asymOut">Saída (JSON híbrido)</label>
+          <textarea id="asymOut" rows="9" class="mono" readonly></textarea>
+
+          <div class="hr"></div>
+          <label class="label" for="asymIn">Entrada para decifrar (JSON híbrido)</label>
+          <textarea id="asymIn" rows="9" class="mono" placeholder='{"v":1,"rsa":"RSA-OAEP-256","aes":"AES-GCM","iv":"...","ek":"...","ct":"..."}'></textarea>
+
+          <div class="spacer"></div>
+          <div class="row">
+            <button id="btnAsymDecrypt" class="btn primary">Decifrar com privada</button>
+            <button data-copy="#asymPlainOut" class="btn">Copiar texto</button>
+          </div>
+
+          <div class="spacer"></div>
+          <label class="label" for="asymPlainOut">Texto decifrado</label>
+          <textarea id="asymPlainOut" rows="4" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      ⚠️ Exemplo educativo. Em produção, trate armazenamento/rotação de chaves, política de senhas e validações de entrada.
+    </footer>
+  </div>
+
+  <script>
+    // ================== Helpers de encoding ==================
+    const te = new TextEncoder();
+    const td = new TextDecoder();
+
+    function ab2b64(ab){
+      const bytes = new Uint8Array(ab);
+      let bin = "";
+      for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+    function b642ab(b64){
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    // ================== PBKDF2 + AES-GCM (Simétrica) ==================
+    async function deriveAesKeyFromPassword(password, salt, iterations=200_000){
+      const material = await crypto.subtle.importKey("raw", te.encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name:"PBKDF2", salt, iterations, hash:"SHA-256" },
+        material,
+        { name:"AES-GCM", length:256 },
+        false, ["encrypt","decrypt"]
+      );
+    }
+
+    async function aesEncryptWithPassword(plainText, password){
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv   = crypto.getRandomValues(new Uint8Array(12));
+      const key  = await deriveAesKeyFromPassword(password, salt);
+      const ctBuffer = await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, te.encode(plainText));
+      return { v:1, alg:"AES-GCM", kdf:"PBKDF2", it:200000, salt:ab2b64(salt), iv:ab2b64(iv), ct:ab2b64(ctBuffer) };
+    }
+
+    async function aesDecryptWithPassword(payload, password){
+      const salt = new Uint8Array(b642ab(payload.salt));
+      const iv   = new Uint8Array(b642ab(payload.iv));
+      const key  = await deriveAesKeyFromPassword(password, salt, payload.it || 200000);
+      const ptBuffer = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, b642ab(payload.ct));
+      return td.decode(ptBuffer);
+    }
+
+    // ================== PEM (RSA) ==================
+    function pemToArrayBuffer(pem){
+      const b64 = pem.replace(/-----[^-]+-----/g,"").replace(/\s+/g,"");
+      return b642ab(b64);
+    }
+    function arrayBufferToPem(ab, label){
+      const b64 = ab2b64(ab).match(/.{1,64}/g).join("\n");
+      return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----`;
+    }
+
+    // ================== RSA-OAEP (Assimétrica) ==================
+    async function generateRsaKeyPair(){
+      return crypto.subtle.generateKey(
+        { name:"RSA-OAEP", modulusLength:2048, publicExponent:new Uint8Array([0x01,0x00,0x01]), hash:"SHA-256" },
+        true, ["encrypt","decrypt"]
+      );
+    }
+    async function exportPublicKeyPem(pub){
+      const spki = await crypto.subtle.exportKey("spki", pub);
+      return arrayBufferToPem(spki, "PUBLIC KEY");
+    }
+    async function exportPrivateKeyPem(priv){
+      const pkcs8 = await crypto.subtle.exportKey("pkcs8", priv);
+      return arrayBufferToPem(pkcs8, "PRIVATE KEY");
+    }
+    async function importPublicKeyPem(pem){
+      const spki = pemToArrayBuffer(pem);
+      return crypto.subtle.importKey("spki", spki, { name:"RSA-OAEP", hash:"SHA-256" }, true, ["encrypt"]);
+    }
+    async function importPrivateKeyPem(pem){
+      const pkcs8 = pemToArrayBuffer(pem);
+      return crypto.subtle.importKey("pkcs8", pkcs8, { name:"RSA-OAEP", hash:"SHA-256" }, true, ["decrypt"]);
+    }
+
+    // Híbrido: AES para dados; RSA para a chave
+    async function hybridEncryptWithPublicKey(plainText, publicKeyPem){
+      const publicKey = await importPublicKeyPem(publicKeyPem);
+
+      const aesKey = await crypto.subtle.generateKey({ name:"AES-GCM", length:256 }, true, ["encrypt","decrypt"]);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name:"AES-GCM", iv }, aesKey, te.encode(plainText));
+
+      const rawAes = await crypto.subtle.exportKey("raw", aesKey);
+      const ek = await crypto.subtle.encrypt({ name:"RSA-OAEP" }, publicKey, rawAes);
+
+      return { v:1, rsa:"RSA-OAEP-256", aes:"AES-GCM", iv:ab2b64(iv), ek:ab2b64(ek), ct:ab2b64(ct) };
+    }
+    async function hybridDecryptWithPrivateKey(payload, privateKeyPem){
+      const privateKey = await importPrivateKeyPem(privateKeyPem);
+      const rawAes = await crypto.subtle.decrypt({ name:"RSA-OAEP" }, privateKey, b642ab(payload.ek));
+      const aesKey = await crypto.subtle.importKey("raw", rawAes, { name:"AES-GCM" }, false, ["decrypt"]);
+      const iv = new Uint8Array(b642ab(payload.iv));
+      const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, aesKey, b642ab(payload.ct));
+      return td.decode(pt);
+    }
+
+    // ================== UI (jQuery) ==================
+    $(function(){
+      // Aviso de contexto seguro
+      if (!window.isSecureContext){ $("#secureWarn").removeClass("hidden"); }
+
+      // Tabs
+      function selectTab(name){
+        const isSym = name === "sym";
+        $("#panelSym").toggleClass("hidden", !isSym);
+        $("#panelAsym").toggleClass("hidden", isSym);
+        $("#tabSym").attr("aria-selected", isSym);
+        $("#tabAsym").attr("aria-selected", !isSym);
+        if(!isSym) $("#panelAsym").focus();
+      }
+      $("#tabSym").on("click", ()=>selectTab("sym"));
+      $("#tabAsym").on("click", ()=>selectTab("asym"));
+      selectTab("sym");
+
+      // Copiar
+      $(document).on("click","[data-copy]", function(){
+        const target = $(this).attr("data-copy");
+        const $el = $(target);
+        const text = $el.val ? $el.val() : $el.text();
+        navigator.clipboard.writeText(text || "").then(()=>{
+          const $btn = $(this), old = $btn.text();
+          $btn.text("Copiado ✓"); setTimeout(()=> $btn.text(old), 900);
+        });
+      });
+
+      // Simétrica: cifrar
+      $("#btnSymEncrypt").on("click", async ()=>{
+        try{
+          const plain = $("#symPlain").val().trim();
+          const pass  = $("#symPassEnc").val();
+          if(!plain) return alert("Informe um texto.");
+          if(!pass)  return alert("Informe uma senha.");
+          const out = await aesEncryptWithPassword(plain, pass);
+          $("#symOut").val(JSON.stringify(out, null, 2));
+        }catch(err){ console.error(err); alert("Erro ao cifrar (veja o console)."); }
+      });
+
+      // Simétrica: decifrar
+      $("#btnSymDecrypt").on("click", async ()=>{
+        try{
+          const inp = $("#symIn").val().trim();
+          const pass = $("#symPassDec").val();
+          if(!inp) return alert("Cole o JSON de entrada.");
+          if(!pass) return alert("Informe a senha.");
+          const payload = JSON.parse(inp);
+          const plain = await aesDecryptWithPassword(payload, pass);
+          $("#symPlainOut").val(plain);
+        }catch(err){ console.error(err); alert("Erro ao decifrar. JSON/senha podem estar incorretos."); }
+      });
+
+      // Assimétrica: gerar chaves
+      $("#btnGenKeys").on("click", async ()=>{
+        try{
+          const { publicKey, privateKey } = await generateRsaKeyPair();
+          $("#pubKey").val(await exportPublicKeyPem(publicKey));
+          $("#privKey").val(await exportPrivateKeyPem(privateKey));
+        }catch(err){ console.error(err); alert("Erro ao gerar chaves."); }
+      });
+
+      // Assimétrica: cifrar
+      $("#btnAsymEncrypt").on("click", async ()=>{
+        try{
+          const plain = $("#asymPlain").val().trim();
+          const pubPem = $("#pubKey").val().trim();
+          if(!plain) return alert("Informe um texto.");
+          if(!pubPem) return alert("Cole a chave pública (PEM).");
+          const out = await hybridEncryptWithPublicKey(plain, pubPem);
+          $("#asymOut").val(JSON.stringify(out, null, 2));
+          $("#asymIn").val(JSON.stringify(out, null, 2));
+        }catch(err){ console.error(err); alert("Erro ao cifrar com a chave pública."); }
+      });
+
+      // Assimétrica: decifrar
+      $("#btnAsymDecrypt").on("click", async ()=>{
+        try{
+          const inp = $("#asymIn").val().trim();
+          const privPem = $("#privKey").val().trim();
+          if(!inp) return alert("Cole o JSON híbrido.");
+          if(!privPem) return alert("Cole a chave privada (PEM).");
+          const payload = JSON.parse(inp);
+          const plain = await hybridDecryptWithPrivateKey(payload, privPem);
+          $("#asymPlainOut").val(plain);
+        }catch(err){ console.error(err); alert("Erro ao decifrar com a chave privada."); }
+      });
+    });
+  </script>
+</body>
+</html>
